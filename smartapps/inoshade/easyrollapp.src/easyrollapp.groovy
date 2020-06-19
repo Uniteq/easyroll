@@ -1,3 +1,6 @@
+/*
+ * 20200619 - jog up, down 추가
+ */
 definition(
     name: "EasyRollApp",
     namespace: "Inoshade",
@@ -22,7 +25,7 @@ def configurations()
         section("Device")
         {
             input "devices", "device.easyrollsingle", title: "EasyRoll(DTH)", multiple: true, required: true
-            input "actions", "enum", title: "Action", multiple: false, required: true, options: ["UP", "STOP", "DOWN", "LEVEL", "M1", "M2", "M3"]
+            input "actions", "enum", title: "Action", multiple: false, required: true, options: ["UP", "STOP", "DOWN", "LEVEL", "JOG UP", "JOG DOWN", "M1", "M2", "M3"]
         } 
         section("How")
         {
@@ -229,6 +232,12 @@ def actionRun(){
             break
             case "LEVEL":
             	device.setLevel(level)
+            break
+            case "JOG UP":
+            	device.jogUp()
+            break
+            case "JOG DOWN":
+            	device.jogDown()
             break
             case "M1":
             	device.m1()
