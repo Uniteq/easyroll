@@ -16,13 +16,14 @@
  /*EasyRollSingle DTH는 단일 블라인드를 DTH로 제어하기 위한 템플릿코드 입니다.*/
  /*
   * 20200619 - Window Shade Capability 추가
+  * 20200701 - Shade Level 일정 주기마다 polling 될 수 있도록 기능 추가
   */
  
 import groovy.json.*
 import groovy.json.JsonSlurper
 
 metadata {
-	definition (name: "EasyRollSingle", namespace: "Inoshade", author: "Nuovothoth", ocfDeviceType: "oic.d.blind", runLocally: true, vid: "generic-shade") {
+	definition (name: "EasyRollSingle", namespace: "Inoshade", author: "Nuovothoth", runLocally: true, ocfDeviceType: "oic.d.blind", vid: "generic-shade") { //, runLocally: true
 		capability "Window Shade"
         capability "Switch"
 		capability "Switch Level"
@@ -46,13 +47,16 @@ metadata {
         
         command "topSave"
         command "bottomSave"
+        
+        command "poll"
 	}
 	
     preferences {
-        input "easyrollAddress1", "text", type:"text", title:"IP Address 1",
-            description: "enter easyroll address must be [ip]:[port] ", required: true
-            
+        input "easyrollAddress1", "text", type:"text", title:"IP Address 1", description: "enter easyroll address must be [ip]:[port] ", required: true
+        input "ezInterval", "number", title: "Check Interval (unit:sec, 61: not checking)", description: "How often do you want to check the level of the blind?", range: "10..61", defaultValue: 10,  required: true 
+        
         input name: "setMode", type: "bool", title: "SetMode", description: "On/Off"
+        
     }
 
 	tiles(scale: 2)  {
@@ -68,7 +72,7 @@ metadata {
         }
         
     	valueTile("valueDev1", "device.locDev1", width: 4, height: 1, decoration: "flat") {
-            state "default", label:'${currentValue}%', defaultState: true
+            state "val", label:'${currentValue}%', defaultState: true
         }
         
         standardTile("refresh", "command.refresh", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
@@ -113,21 +117,40 @@ metadata {
 	}
 }
 
+def installed() {
+    //log.debug "installed()"
+    updated()
+}
+
+def uninstalled() {
+    //log.debug "uninstalled()"
+    unschedule()
+}
+
 def updated() {
-	log.debug("updated")
+	//log.debug("updated")
     sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "LAN", scheme:"untracked"]), displayed: false)
-    //unschedule()
-	//sendEvent(name: "checkInterval", value: 30)
+    resetting()
 }
 
 def ping() {
-	log.debug("ping")
+	//log.debug("ping")
 	getCurData()
 }
 
+def resetting(){
+	//log.debug("resetting")
+	unschedule()
+    if(ezIntarval!=61){
+    	poll()
+        runEvery10Minutes(resetting) //runIn이 도중에 멈추는 현상이 랜덤하게 발생하여 주기적 resetting이 필요.
+    }
+}
+
 def poll() {
-	log.debug("poll")
+	//log.debug("poll")
 	getCurData()
+    runIn(ezInterval, poll)
 }
 
 /*refresh: 블라인드 위치값을 알기 위해 사용(추후 polling으로도 사용 가능)*/
@@ -159,6 +182,7 @@ def runAction(String uri, String mode, def command){
 }
 
 def getCurData() {
+	//log.debug "getCurData()"
 	def options = [
             "method": "GET",
             "path": "/lstinfo",
@@ -179,13 +203,14 @@ def fromHub(physicalgraph.device.HubResponse hubResponse){
         msg = parseLanMessage(hubResponse.description)
 
         def resp = new JsonSlurper().parseText(msg.body)
-		log.debug "Parsing '${resp}'"
-        log.debug "Parsing '${resp.local_ip}'"
+		//log.debug "Parsing '${resp}'"
+        //log.debug "Parsing '${resp.local_ip}'"
         //parse(resp)
         
         if(easyrollAddress1 == resp.local_ip) {
-            log.debug "sendEvent2"
+            //log.debug "sendEvent2"
             def realVal = 100-resp.position.intValue()
+            //log.debug "realVal '${realVal}'"
             statusUpdate(realVal)
         }
     } catch (e) {
