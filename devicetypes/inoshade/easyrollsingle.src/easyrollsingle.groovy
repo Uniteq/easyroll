@@ -19,7 +19,6 @@
   * 20200701 - Shade Level 일정 주기마다 polling 될 수 있도록 기능 추가
   */
  
-import groovy.json.*
 import groovy.json.JsonSlurper
 
 metadata {
