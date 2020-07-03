@@ -17,8 +17,6 @@
  /*
   * 20200703 - DTH 업데이트 적용시 ST 서버 에러 발생하는 경우가 있어서 새로운 DTH로 릴리즈 
   */
- 
-import groovy.json.*
 import groovy.json.JsonSlurper
 
 metadata {
