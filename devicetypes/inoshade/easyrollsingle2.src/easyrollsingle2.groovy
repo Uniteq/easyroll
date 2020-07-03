@@ -18,6 +18,7 @@
   * 20200703 - DTH 업데이트 적용시 ST 서버 에러 발생하는 경우가 있어서 새로운 DTH로 릴리즈 
   */
 import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
 
 metadata {
 	definition (name: "EasyRollSingle2", namespace: "Inoshade", author: "Nuovothoth", runLocally: true, ocfDeviceType: "oic.d.blind", vid: "generic-shade") { //, runLocally: true
