@@ -20,6 +20,7 @@
   */
  
 import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
 
 metadata {
 	definition (name: "EasyRollSingle", namespace: "Inoshade", author: "Nuovothoth", runLocally: true, ocfDeviceType: "oic.d.blind", vid: "generic-shade") { //, runLocally: true
