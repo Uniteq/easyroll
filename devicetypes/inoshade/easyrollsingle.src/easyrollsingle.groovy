@@ -17,47 +17,49 @@
  /*
   * 20200619 - Window Shade Capability 추가
   * 20200701 - Shade Level 일정 주기마다 polling 될 수 있도록 기능 추가
+  * 20200710 - 원인불명의 500 에러 발생에 대한 예측 대응
   */
- 
+
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
 metadata {
-	definition (name: "EasyRollSingle", namespace: "Inoshade", author: "Nuovothoth", runLocally: true, ocfDeviceType: "oic.d.blind", vid: "generic-shade") { //, runLocally: true
+	definition (name: "EasyRollSingle", namespace: "Inoshade", author: "Nuovothoth", cstHandler: true, runLocally: true, ocfDeviceType: "oic.d.blind", vid: "generic-shade") {
 		capability "Window Shade"
         capability "Switch"
 		capability "Switch Level"
         capability "Momentary"
-        
         capability "Health Check"
-     	capability "Refresh"
-        capability "Polling"
-
-        attribute "locDev1", "number"
+        
+        command "refresh"
 
 		command "up"
     	command "stop"
         command "down"
         command "jogUp"
         command "jogDown"
-        
+
         command "m1"
         command "m2"
         command "m3"
-        
+
         command "topSave"
         command "bottomSave"
         
-        command "poll"
+        attribute "locDev1", "number"
 	}
-	
+
     preferences {
         input "easyrollAddress1", "text", type:"text", title:"IP Address 1", description: "enter easyroll address must be [ip]:[port] ", required: true
         input "ezInterval", "number", title: "Check Interval (unit:sec, 61: not checking)", description: "How often do you want to check the level of the blind?", range: "10..61", defaultValue: 10,  required: true 
         
         input name: "setMode", type: "bool", title: "SetMode", description: "On/Off"
-        
     }
+
+	simulator {
+		// TODO: define status and reply messages here
+	}
+
 
 	tiles(scale: 2)  {
     	multiAttributeTile(name: "windowShade", type: "generic", width: 6, height: 4) {
@@ -71,30 +73,30 @@ metadata {
             }
         }
         
-    	valueTile("valueDev1", "device.locDev1", width: 4, height: 1, decoration: "flat") {
-            state "val", label:'${currentValue}%', defaultState: true
+    	valueTile("valueDev1", "device.locDev1", width: 2, height: 1, decoration: "flat") {
+            state "default", label:'${currentValue}%', defaultState: true
         }
-        
-        standardTile("refresh", "command.refresh", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
-            state("default", label: 'refresh', action: "refresh.refresh")
+
+        standardTile("refresh", "device.momentary", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
+            state("refresh", label: 'refresh', action: "refresh")
         }
 
 		standardTile("up", "device.momentary", width: 4, height: 2, inactiveLabel: false, decoration: "flat") {
             state("up", label: 'up', action: "up", icon: "st.samsung.da.oven_ic_up")
         }
-        standardTile("jogUp", "device.momentary", width: 2, height: 3, inactiveLabel: false, decoration: "flat") {
+        standardTile("jogUp", "device.momentary", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
             state("jogUp", label: 'jogUp', action: "jogUp", icon: "st.samsung.da.oven_ic_plus")
         }
         standardTile("stop", "device.momentary", width: 4, height: 2, inactiveLabel: false, decoration: "flat") {
             state("stop", label: 'stop', action: "stop", icon: "st.samsung.da.washer_ic_cancel")
         }
-        standardTile("jogDown", "device.momentary", width: 2, height: 3, inactiveLabel: false, decoration: "flat") {
+        standardTile("jogDown", "device.momentary", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
             state("jogDown", label: 'jogDown', action: "jogDown", icon: "st.samsung.da.oven_ic_minus")
         }
         standardTile("down", "device.momentary", width: 4, height: 2, inactiveLabel: false, decoration: "flat") {
             state("close", label: 'down', action: "down", icon: "st.samsung.da.oven_ic_down")
         }
-        
+
         standardTile("m1", "device.momentary", width: 2, height: 1, inactiveLabel: false, decoration: "flat") {
             state("push", label: 'M1', action: "m1", icon: "st.illuminance.illuminance.dark")
         }
@@ -112,8 +114,9 @@ metadata {
             state("push", label: "bottom save", action: "bottomSave")
         }
         
-        main(["windowShade"])
-        details(["windowShade", "valueDev1", "refresh", "setMode", "up", "jogUp", "stop", "jogDown", "down", "m1", "m2", "m3", "topSave", "bottomSave"])
+         main(["windowShade"])
+        details(["windowShade", "valueDev1", "refresh", "up", "jogUp", "stop", "jogDown", "down", "m1", "m2", "m3", "topSave", "bottomSave"])
+
 	}
 }
 
@@ -133,14 +136,10 @@ def updated() {
     resetting()
 }
 
-def ping() {
-	//log.debug("ping")
-	getCurData()
-}
-
 def resetting(){
 	//log.debug("resetting")
 	unschedule()
+    
     if(ezIntarval!=61){
     	poll()
         runEvery10Minutes(resetting) //runIn이 도중에 멈추는 현상이 랜덤하게 발생하여 주기적 resetting이 필요.
@@ -150,7 +149,7 @@ def resetting(){
 def poll() {
 	//log.debug("poll")
 	getCurData()
-    runIn(ezInterval, poll)
+    runIn(ezInterval as int, poll)
 }
 
 /*refresh: 블라인드 위치값을 알기 위해 사용(추후 polling으로도 사용 가능)*/
@@ -160,7 +159,7 @@ def refresh() {
 }
 // parse events into attributes
 def parse(String description) {
-	log.debug "Parsing '${description}'"
+	//log.debug "Parsing '${description}'"
 }
 
 /*HTTP REST API Request&response Handler*/
@@ -176,13 +175,12 @@ def runAction(String uri, String mode, def command){
             "command:"+ "${command}"+
         '}'
     ]
-    
+
     def myhubAction = new physicalgraph.device.HubAction(options, null)
     sendHubCommand(myhubAction)
 }
 
 def getCurData() {
-	//log.debug "getCurData()"
 	def options = [
             "method": "GET",
             "path": "/lstinfo",
@@ -191,7 +189,7 @@ def getCurData() {
             ]
     ]
     //log.debug "options: ${options}"
-    
+
     def myhubAction = new physicalgraph.device.HubAction(options, null, [callback: fromHub])
     sendHubCommand(myhubAction)
 }
@@ -205,8 +203,7 @@ def fromHub(physicalgraph.device.HubResponse hubResponse){
         def resp = new JsonSlurper().parseText(msg.body)
 		//log.debug "Parsing '${resp}'"
         //log.debug "Parsing '${resp.local_ip}'"
-        //parse(resp)
-        
+
         if(easyrollAddress1 == resp.local_ip) {
             //log.debug "sendEvent2"
             def realVal = 100-resp.position.intValue()
@@ -221,8 +218,8 @@ def fromHub(physicalgraph.device.HubResponse hubResponse){
 /*명령어 실행 함수들*/
 //퍼센트 이동 명령
 def setLevel(value, rate = null) {
-	//log.debug "setLevel($value)"
-	if (setMode != true) {
+	//log.trace "setLevel($value)"
+	if (setMode != "true") {
     	runAction("/action", "level", 100-value)
         statusUpdate(value)
     }
@@ -240,10 +237,11 @@ def statusUpdate(value){
         sendEvent(name:"windowShade", value: "partially open")
     }
 }
+
 //올리기(세팅모드일때는 강제올림)
 def up() {
 	//log.debug "Executing 'up'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
     	runAction("/action", "force", "FTU")
     } else {
     	runAction("/action", "general", "TU")
@@ -252,7 +250,7 @@ def up() {
 //멈춤
 def stop() {
 	//log.debug "Executing 'stop'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
     	runAction("/action", "force", "FSS")
     } else {
     	runAction("/action", "general", "SS")
@@ -261,7 +259,7 @@ def stop() {
 //내리기(세팅모드일때는 강제내림)
 def down() {
 	//log.debug "Executing 'down'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "force", "FBD")
     } else {
     	runAction("/action", "general", "BD")
@@ -270,7 +268,7 @@ def down() {
 //한 칸 올리기(세팅모드일때는 강제 한 칸 올리기)
 def jogUp() {
 	//log.debug "Executing 'jogUp'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "force", "FSU")
     } else {
     	runAction("/action", "general", "SU")
@@ -279,7 +277,7 @@ def jogUp() {
 //한 칸 내리기(세팅모드일때는 강제 한 칸 내리기)
 def jogDown() {
 	//log.debug "Executing 'jogDown'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "force", "FSD")
     } else {
     	runAction("/action", "general", "SD")
@@ -288,7 +286,7 @@ def jogDown() {
 //메모리1 이동 (세팅 모드 시 현재 위치 메모리1에 저장)
 def m1() {
 	//log.debug "Executing 'm1'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "save", "SM1")
     } else {
     	runAction("/action", "general", "M1")
@@ -297,7 +295,7 @@ def m1() {
 //메모리2 이동 (세팅 모드 시 현재 위치 메모리2에 저장)
 def m2() {
 	//log.debug "Executing 'm2'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "save", "SM2")
     } else {
     	runAction("/action", "general", "M2")
@@ -306,7 +304,7 @@ def m2() {
 //메모리3 이동 (세팅 모드 시 현재 위치 메모리3에 저장)
 def m3() {
 	//log.debug "Executing 'm3'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "save", "SM3")
     } else {
     	runAction("/action", "general", "M3")
@@ -315,13 +313,13 @@ def m3() {
 //최상단, 최하단은 세팅모드에서만 동작하도록 함
 def bottomSave() {
 	//log.debug "Executing 'bottomSave'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "save", "SB")
     }
 }
 def topSave() {
 	//log.debug "Executing 'topSave'"
-    if (setMode == true) {
+    if (state.setMode == "true") {
         runAction("/action", "save", "ST")
     }
 }
@@ -332,14 +330,4 @@ def close() {
 
 def open() {
        setLevel(100)
-}
-
-def off() {
-    //log.debug "off()"
-   close()
-}
-
-def on() {
-    //log.debug "on()"
-   open()
 }
