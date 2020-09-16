@@ -18,6 +18,7 @@
   * 20200619 - Window Shade Capability 추가
   * 20200701 - Shade Level 일정 주기마다 polling 될 수 있도록 기능 추가
   * 20200710 - 원인불명의 500 에러 발생에 대한 예측 대응
+  * 20200916 - setmode 작동하지 않는 현상 해결
   */
 
 import groovy.json.JsonSlurper
@@ -164,6 +165,8 @@ def parse(String description) {
 
 /*HTTP REST API Request&response Handler*/
 def runAction(String uri, String mode, def command){
+	//log.debug "setmode: ${state.setMode}"
+    //log.debug "setmode2: ${setMode}"
 	def options = [
         "method": "POST",
         "path": "${uri}",
@@ -219,7 +222,7 @@ def fromHub(physicalgraph.device.HubResponse hubResponse){
 //퍼센트 이동 명령
 def setLevel(value, rate = null) {
 	//log.trace "setLevel($value)"
-	if (setMode != "true") {
+	if (setMode != true) {
     	runAction("/action", "level", 100-value)
         statusUpdate(value)
     }
@@ -241,7 +244,7 @@ def statusUpdate(value){
 //올리기(세팅모드일때는 강제올림)
 def up() {
 	//log.debug "Executing 'up'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
     	runAction("/action", "force", "FTU")
     } else {
     	runAction("/action", "general", "TU")
@@ -250,7 +253,7 @@ def up() {
 //멈춤
 def stop() {
 	//log.debug "Executing 'stop'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
     	runAction("/action", "force", "FSS")
     } else {
     	runAction("/action", "general", "SS")
@@ -259,7 +262,7 @@ def stop() {
 //내리기(세팅모드일때는 강제내림)
 def down() {
 	//log.debug "Executing 'down'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "force", "FBD")
     } else {
     	runAction("/action", "general", "BD")
@@ -268,7 +271,7 @@ def down() {
 //한 칸 올리기(세팅모드일때는 강제 한 칸 올리기)
 def jogUp() {
 	//log.debug "Executing 'jogUp'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "force", "FSU")
     } else {
     	runAction("/action", "general", "SU")
@@ -277,7 +280,7 @@ def jogUp() {
 //한 칸 내리기(세팅모드일때는 강제 한 칸 내리기)
 def jogDown() {
 	//log.debug "Executing 'jogDown'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "force", "FSD")
     } else {
     	runAction("/action", "general", "SD")
@@ -286,7 +289,7 @@ def jogDown() {
 //메모리1 이동 (세팅 모드 시 현재 위치 메모리1에 저장)
 def m1() {
 	//log.debug "Executing 'm1'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "save", "SM1")
     } else {
     	runAction("/action", "general", "M1")
@@ -295,7 +298,7 @@ def m1() {
 //메모리2 이동 (세팅 모드 시 현재 위치 메모리2에 저장)
 def m2() {
 	//log.debug "Executing 'm2'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "save", "SM2")
     } else {
     	runAction("/action", "general", "M2")
@@ -304,7 +307,7 @@ def m2() {
 //메모리3 이동 (세팅 모드 시 현재 위치 메모리3에 저장)
 def m3() {
 	//log.debug "Executing 'm3'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "save", "SM3")
     } else {
     	runAction("/action", "general", "M3")
@@ -313,13 +316,13 @@ def m3() {
 //최상단, 최하단은 세팅모드에서만 동작하도록 함
 def bottomSave() {
 	//log.debug "Executing 'bottomSave'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "save", "SB")
     }
 }
 def topSave() {
 	//log.debug "Executing 'topSave'"
-    if (state.setMode == "true") {
+    if (setMode == true) {
         runAction("/action", "save", "ST")
     }
 }
